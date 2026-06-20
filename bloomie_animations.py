@@ -175,8 +175,8 @@ def run_demo():
                     print("Switched to: Victory")
                 elif event.key == pygame.K_6:
                     animator.set_animation("attack")
-                    current_anim_name = "Attack"
-                    print("Switched to: Attack")
+                    current_anim_name = "Attack Dodging"
+                    print("Switched to: Attack Dodging")
 
         # Update animation
         animator.update()
@@ -215,7 +215,7 @@ def run_demo():
             "Jump": (100, 200, 255),
             "Heal": (255, 100, 255),
             "Victory": (255, 215, 0),
-            "Attack": (255, 80, 80)
+            "Attack dodging": (255, 80, 80)
         }
         color = colors.get(current_anim_name, (255, 255, 255))
         draw_text(screen, f"> {current_anim_name}", 30, 90, color, 30)
