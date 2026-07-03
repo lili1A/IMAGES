@@ -5,7 +5,7 @@ import sys
 pygame.init()
 
 # CHANGE TO LOCAL PATH 
-ASSET_DIR = "/Users/liliiagubaeva/IMAGES-4/Imaging Movements"
+ASSET_DIR = "/Users/liliiagubaeva/IMAGES/Imaging Movements"
 
 # Screen settings
 SCREEN_WIDTH = 800
