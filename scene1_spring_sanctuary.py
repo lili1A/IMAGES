@@ -1036,14 +1036,13 @@ def draw_background(screen, cam, bg_image, corrupted_zone):
 
 
 def draw_ground(screen, cam, ground_segments):
-    for seg in ground_segments:
-        left = cam.apply(seg.left)
-        right = cam.apply(seg.right)
-        if right < 0 or left > SCREEN_WIDTH:
-            continue
-        rect = pygame.Rect(left, seg.top, seg.width, seg.height)
-        pygame.draw.rect(screen, (150, 110, 90), rect)
-        pygame.draw.rect(screen, (120, 190, 110), (rect.left, rect.top, rect.width, 14))
+    """No-op by design (matches the fix in the uploaded reference file): the
+    ground_segments rects still exist and still drive collision in
+    Bloomie.update(), but we no longer paint a brown/green box over the
+    background art for them. Bloomie just stands directly on the
+    illustrated ground in Spring Sanctuary Background .png instead of
+    appearing to stand on a solid-color block."""
+    pass
 
 
 def draw_platform(screen, cam, plat, glow_t):
