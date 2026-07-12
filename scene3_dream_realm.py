@@ -79,8 +79,8 @@ try:
 except pygame.error:
     pass
 
-SCREEN_WIDTH = 1024
-SCREEN_HEIGHT = 576
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
 FPS = 60
 
 GRAVITY = 0.75
@@ -461,16 +461,28 @@ class ShineBurst:
         screen.blit(img, rect)
 
 
-class LandingPuff:
-    """A quick, cheap dust/sparkle puff spawned under Bloomie's feet the
-    instant she touches down - a few expanding, fading rings, no art asset
-    needed. Purely cosmetic (doesn't touch collision)."""
-    DURATION = 0.35
+class DustPuff:
+    """A punchy dust/spark burst spawned under Bloomie's feet - fired both
+    the instant she pushes off into a jump and the instant she lands.
+    Bigger, brighter and busier than a single fading ring: several
+    expanding rings PLUS a handful of flung-outward sparkle motes, all in a
+    warm cream/gold tone that pops against the Dream Realm's cool purple
+    sky. No art asset needed - purely cosmetic, never touches collision."""
+    DURATION = 0.5
 
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.t = 0.0
+        self.motes = [
+            {
+                "ang": random.uniform(0.15, math.pi - 0.15),  # upward hemisphere
+                "speed": random.uniform(55, 120),
+                "size": random.uniform(2.5, 5.0),
+                "delay": random.uniform(0.0, 0.05),
+            }
+            for _ in range(10)
+        ]
 
     def update(self, dt):
         self.t += dt
@@ -482,17 +494,36 @@ class LandingPuff:
     def draw(self, screen, cam):
         p = min(1.0, self.t / self.DURATION)
         cx = cam.apply(self.x)
-        for i in range(3):
-            ring_p = max(0.0, min(1.0, p - i * 0.12))
+        # expanding rings - bigger, brighter, and more of them than before
+        for i in range(4):
+            ring_p = max(0.0, min(1.0, p - i * 0.09))
             if ring_p <= 0:
                 continue
-            r = int(6 + 26 * ring_p)
-            alpha = int(150 * (1 - ring_p))
+            r = int(10 + 50 * ring_p)
+            alpha = int(235 * (1 - ring_p) ** 1.2)
             if alpha <= 0:
                 continue
-            surf = pygame.Surface((r * 2 + 4, r + 4), pygame.SRCALPHA)
-            pygame.draw.ellipse(surf, (235, 230, 255, alpha), (2, 2, r * 2, r))
-            screen.blit(surf, (cx - r - 2, self.y - r // 2 - 2))
+            surf = pygame.Surface((r * 2 + 4, r + 6), pygame.SRCALPHA)
+            pygame.draw.ellipse(surf, (255, 248, 230, alpha), (2, 2, r * 2, r))
+            screen.blit(surf, (cx - r - 2, self.y - r // 2 - 3))
+        # flung sparkle motes for a punchier, more obvious burst
+        for m in self.motes:
+            local_t = max(0.0, self.t - m["delay"])
+            if local_t <= 0:
+                continue
+            span = max(0.05, self.DURATION - m["delay"])
+            lp = min(1.0, local_t / span)
+            dist = m["speed"] * local_t
+            dx = math.cos(m["ang"]) * dist
+            dy = -math.sin(m["ang"]) * dist * 0.65
+            alpha = int(255 * (1 - lp))
+            if alpha <= 0:
+                continue
+            size = max(1.0, m["size"] * (1 - lp * 0.5))
+            r = max(1, int(size))
+            dot = pygame.Surface((r * 2 + 2, r * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(dot, (255, 214, 140, alpha), (r + 1, r + 1), r)
+            screen.blit(dot, (cx + dx - r - 1, self.y + dy - r - 1))
 
 
 # ---------------------------------------------------------------------------
@@ -638,6 +669,8 @@ class Bloomie:
             self.vy = JUMP_SPEED
             self.on_ground = False
             self.animator.set_animation("jump", restart_if_same=True)
+            return True
+        return False
 
     def try_dash(self, direction=None):
         """Shift+D: Light Dash right. Shift+A: Light Dash left. A fast,
@@ -1153,7 +1186,8 @@ def main():
                     state = STATE_PLAY
                 elif state == STATE_PLAY:
                     if event.key in (pygame.K_SPACE, pygame.K_UP):
-                        player.try_jump()
+                        if player.try_jump():
+                            puffs.append(DustPuff(player.x, player.y))
                     elif event.key == pygame.K_d and (event.mod & pygame.KMOD_SHIFT):
                         player.try_dash(1)
                     elif event.key == pygame.K_a and (event.mod & pygame.KMOD_SHIFT):
@@ -1182,7 +1216,7 @@ def main():
             if respawned:
                 play_sound(island_sfx, 0.5)
             if landing_puff_pos is not None:
-                puffs.append(LandingPuff(*landing_puff_pos))
+                puffs.append(DustPuff(*landing_puff_pos))
             camera.update(player.x)
 
             for frag in fragments:
