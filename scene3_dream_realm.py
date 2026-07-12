@@ -3,17 +3,22 @@ Scene 3 - Dream Realm
 ======================
 Bloomie enters the Dream Realm: a sky full of drifting clouds under a
 dazzling moon, holding the Sanctuary's memories from before The Wilt.
-There is no ground here - only three floating crystal islands, spaced too
+There is no ground here - only four floating crystal islands, spaced too
 far apart to simply jump between. Crossing them means using Bloomie's
-Light Dash (Shift+F): a fast, low-gravity swoop through the sky, using her
-dash frames, that covers the distance a normal jump can't.
+Light Dash: a fast, low-gravity swoop through the sky, using her dash
+frames, that covers the distance a normal jump can't. Shift+D dashes
+right, Shift+A dashes left.
 
-Each island holds one memory fragment. Collecting it plays a shine burst
-and a short flashback - a glimpse of a flower and of The Wilt's corruption,
-with sound - and then the NEXT island rises up out of the clouds (it isn't
-just faded in) and becomes solid ground to dash to. The third island also
-holds the crystal that closes out the level, findable once its own memory
-fragment has been collected.
+Bloomie starts already standing on the first island - no memory fragment
+there, it's just solid ground to begin on - and the second island is
+visible and reachable right away too. Each of the remaining three islands
+holds one memory fragment; collecting it plays a shine burst, and then the
+NEXT island rises up out of the clouds (it isn't just faded in) and
+becomes solid ground to dash to. The fourth and final island - visibly
+the biggest of the four - holds both the last memory fragment and the
+crystal that closes out the level. Collecting that last fragment is also
+the only point in the scene where the flower/Wilt flashback cutscene
+plays.
 
 Run with:
     pip install pygame pillow
@@ -26,20 +31,20 @@ located automatically by filename, so no paths need to be edited.
 Asset -> usage map
 --------------------------------------------------------
 ISE /Scene 3/Scene 3 bg.png                     -> scrolling night-sky background
-ISE /Scene 3/Side Platform.png                  -> island 0 (start)
-ISE /Scene 3/Middle platform.png                -> island 1
-ISE /Scene 3/Final platform.png                 -> island 2 (stairway + archway, crystal)
+ISE /Scene 3/Side Platform.png                  -> island 0 (start, no pickup)
+ISE /Scene 3/Middle platform.png                -> islands 1 and 2
+ISE /Scene 3/Final platform.png                 -> island 3 (bigger, crystal + last memory)
 ISE /Scene 3/Cloud Texture.png                  -> drifting ambient cloud layers
 ISE /Scene 3/Star Particles .png                -> twinkling sky accents + part of
                                                     the "unlock" shine effect + landing sparkle
-ISE /Scene 1/Sakura Petals.png                  -> memory-fragment pickups
+ISE /Scene 1/Sakura Petal Single.png            -> memory-fragment pickups
 ISE /Scene 2/Rainbow Sparkles .png              -> the "unlock" shine burst
 ISE /Scene 2/Crystal Activation Animation .gif  -> the end-of-level crystal
 ISE /Scene 1/Sakura Flower.png                  -> flashback "restored garden" image
 Imaging Movements/Wilt/Evil Appearance/wilt_evil2.png -> flashback "corruption" image
-Imaging Movements/Bloomie/Bloomie LightDash/*   -> the Shift+F Light Dash animation
+Imaging Movements/Bloomie/Bloomie LightDash/*   -> the Shift+D / Shift+A Light Dash animation
 Imaging Movements/Bloomie/*                     -> Bloomie idle/walk/jump frames
-ISE /Sounds/Dream Realm Theme Scene 3.mp3       -> scene BGM
+ISE /Sounds/Dream Realm Theme Scene 3.mp3       -> scene BGM (kept low so it sits behind sfx)
 ISE /Sounds/Memory Collection Sound Scene 3.mp3 -> plays when a fragment is collected
 ISE /Sounds/Floating Island Movement  Scene 3.mp3 -> plays while an island rises up
 ISE /Sounds/Flower Bloom Sound Scene 1, 4 .mp3  -> flashback "restored garden" beat
@@ -92,7 +97,7 @@ DASH_GRAVITY_MULT = 0.22
 DASH_KICK = -3.5
 DASH_COOLDOWN = 0.9
 
-LEVEL_WIDTH = 1300
+LEVEL_WIDTH = 1750
 
 BLOOMIE_SIZE = (120, 120)
 BLOOMIE_HEIGHT = 140
@@ -242,7 +247,7 @@ def load_sound(filename):
         return None
 
 
-def play_sound(sound, volume=1.0):
+def play_sound(sound, volume=0.1):
     if sound is not None:
         sound.set_volume(volume)
         sound.play()
@@ -529,9 +534,12 @@ class FloatingIsland:
     RISE_DISTANCE = 260   # how far below its resting spot it starts from
     RISE_DURATION = 1.6
     TOP_FRAC = {
-        "Side Platform.png": 0.20,
-        "Middle platform.png": 0.30,
-        "Final platform.png": 0.38,
+        # Side Platform bumped up from 0.20 -> 0.30 so Bloomie's feet (which
+        # always sit exactly on the collision line) land visually embedded
+        # in the platform art instead of hovering just above it.
+        "Side Platform.png": 0.30,
+        "Middle platform.png": 0.38,
+        "Final platform.png": 0.48,
     }
 
     def __init__(self, asset, x, surface_y, target_height, revealed=False):
@@ -631,16 +639,21 @@ class Bloomie:
             self.on_ground = False
             self.animator.set_animation("jump", restart_if_same=True)
 
-    def try_dash(self):
-        """Shift+F: Light Dash. A fast swoop in whichever direction Bloomie
-        is currently facing - the only way to cross the gaps between
-        islands in this scene, since they're deliberately wider than a
-        normal jump can clear."""
+    def try_dash(self, direction=None):
+        """Shift+D: Light Dash right. Shift+A: Light Dash left. A fast,
+        low-gravity swoop in the given direction - the only way to cross
+        the gaps between islands in this scene, since they're deliberately
+        wider than a normal jump can clear. If no direction is passed,
+        falls back to whichever way Bloomie is currently facing."""
         if self.dashing or self.dash_cooldown > 0:
             return False
         self.dashing = True
         self.dash_t = 0.0
-        self.dash_dir = -1 if self.facing_left else 1
+        if direction is not None:
+            self.dash_dir = direction
+            self.facing_left = direction < 0
+        else:
+            self.dash_dir = -1 if self.facing_left else 1
         self.vy = DASH_KICK
         self.on_ground = False
         self.animator.set_animation("dash", restart_if_same=True)
@@ -900,22 +913,32 @@ class Flashback:
 
 
 # ---------------------------------------------------------------------------
-# Level layout - 3 islands, deliberately spaced beyond normal jump range
+# Level layout - 4 islands, deliberately spaced beyond normal jump range
 # (see the dash-distance calibration note in build_level's docstring).
 # ---------------------------------------------------------------------------
 ISLAND_DEFS = [
     # asset, x, surface_y, target_height
     ("Side Platform.png", 180, 400, 210),
     ("Middle platform.png", 564, 380, 200),
-    ("Final platform.png", 975, 400, 270),
+    ("Middle platform.png", 972, 400, 200),
+    ("Final platform.png", 1400, 380, 320),
 ]
 
 
 def build_level(fragment_image):
     """
-    Three floating islands - matching the storyboard's 3-island Dream Realm
-    layout. Gaps were sized against Light-Dash range, empirically bisected
-    the same way jump range was measured in scene1_spring_sanctuary.py:
+    Four floating islands. Bloomie starts already standing on the first
+    (no memory fragment needed there - it's simply solid ground to begin
+    on), and the second island is visible and reachable right away too.
+    From there, each of the remaining three islands holds one memory
+    fragment; collecting it is what calls the *next* island up out of the
+    clouds. The fourth (final, and now visibly larger) island holds both
+    the last memory fragment and the crystal that closes out the level -
+    it's also the only island whose fragment triggers the flower/Wilt
+    flashback cutscene.
+
+    Gaps were sized against Light-Dash range, empirically bisected the
+    same way jump range was measured in scene1_spring_sanctuary.py:
     DASH_SPEED/DASH_DURATION/DASH_GRAVITY_MULT fixed, then binary-search
     the farthest gap Bloomie can actually cross for a given height change,
     *while holding the travel direction key through and after the dash*
@@ -924,26 +947,28 @@ def build_level(fragment_image):
     normal movement carry her the rest of the way down onto the target
     while she falls). Height deltas were kept modest (+/-20px) because the
     dash's own lift is small (~30px max) - it's built for distance, not
-    altitude. Gaps here (~270px) are set at roughly 80% of the ~340px
-    measured minimum-safe dash range, and are well beyond a normal jump's
-    ~200px reach on purpose, so Light Dash (Shift+F) is required, not just
-    an option.
-    Island 0 is solid from the start; islands 1-2 are simply not drawn/
-    collidable at all until their unlocking fragment is collected, at which
-    point they rise up out of the clouds into place (FloatingIsland.
+    altitude. Gaps here (~250-290px) are well beyond a normal jump's
+    ~200px reach on purpose, so Light Dash (Shift+D / Shift+A) is required,
+    not just an option.
+
+    Islands 0 and 1 are solid from the start; islands 2-3 are simply not
+    drawn/collidable at all until their unlocking fragment is collected, at
+    which point they rise up out of the clouds into place (FloatingIsland.
     start_reveal). Each fragment floats just above its own island.
     """
     islands = []
     for i, (asset, x, surface_y, h) in enumerate(ISLAND_DEFS):
-        islands.append(FloatingIsland(asset, x, surface_y, h, revealed=(i == 0)))
+        islands.append(FloatingIsland(asset, x, surface_y, h, revealed=(i <= 1)))
 
+    # Fragments map 1:1 to islands[1:] - the starting island has no pickup,
+    # since Bloomie is simply already standing there when the scene begins.
     fragments = []
-    for i in range(len(islands)):
-        asset, x, surface_y, _h = ISLAND_DEFS[i]
+    for island_index in range(1, len(islands)):
+        asset, x, surface_y, _h = ISLAND_DEFS[island_index]
         fx = x + 25
         fy = surface_y - 60
         frag = MemoryFragment(fx, fy, fragment_image)
-        if i == 0:
+        if island_index == 1:
             frag.available = True
         fragments.append(frag)
 
@@ -1009,7 +1034,7 @@ def draw_fragment_counter(screen, x, y, collected, total):
 
 def draw_dash_meter(screen, x, y, cooldown, on_cooldown_max):
     ready = cooldown <= 0
-    label = "Light Dash: READY (Shift+F)" if ready else "Light Dash: recharging..."
+    label = "Light Dash: READY (Shift+D / Shift+A)" if ready else "Light Dash: recharging..."
     color = (170, 230, 255) if ready else (120, 120, 150)
     draw_text(screen, label, x, y, color, 16)
     if not ready:
@@ -1021,8 +1046,9 @@ def draw_dash_meter(screen, x, y, cooldown, on_cooldown_max):
 
 NARRATIVE = ("Bloomie enters the Dream Realm - a magical place where drifting clouds "
              "float under the dazzling light of the moon. The islands here are too far "
-             "apart to jump between - hold Shift+F to Light Dash across the gaps. "
-             "Collect the memory fragments to call each next island up out of the clouds.")
+             "apart to jump between - hold Shift+D to Light Dash right, or Shift+A to "
+             "Light Dash left, across the gaps. Collect the memory fragments to call "
+             "each next island up out of the clouds.")
 OUTRO_TEXT = ("The Dream Realm's memories are safe once more. But somewhere beyond "
               "the clouds, The Wilt is still waiting...")
 
@@ -1040,9 +1066,9 @@ def main():
     cloud_image = load_image("Cloud Texture.png")
     star_image = load_image("Star Particles .png")
     # load_character_frame (content-crop + scale-by-height) rather than
-    # load_image, since Sakura Petals.png is a wide multi-petal cluster
-    # (~2.1:1) - a fixed-size load_image call would squash it.
-    fragment_image = load_character_frame("Sakura Petals.png", 38)
+    # load_image, so the single petal's real aspect ratio is preserved
+    # instead of getting squashed by a fixed-size load_image call.
+    fragment_image = load_character_frame("Sakura Petal Single.png", 30)
     shine_image = load_image("Rainbow Sparkles .png", (140, 168))
     flashback_wilt_img = load_character_frame("wilt_evil2.png", 300)
     flashback_flower_img = load_character_frame("Sakura Flower.png", 220)
@@ -1051,7 +1077,7 @@ def main():
     try:
         bgm_path = find_asset("Dream Realm Theme Scene 3.mp3")
         pygame.mixer.music.load(bgm_path)
-        pygame.mixer.music.set_volume(0.5)
+        pygame.mixer.music.set_volume(0.16)
         pygame.mixer.music.play(-1)
         bgm = True
     except (pygame.error, FileNotFoundError):
@@ -1074,7 +1100,7 @@ def main():
     player = Bloomie(islands[0].x, islands[0].surface_y)
     camera = Camera(LEVEL_WIDTH, SCREEN_WIDTH)
 
-    crystal = Crystal(islands[-1].x, islands[-1].surface_y - 130)
+    crystal = Crystal(islands[-1].x, islands[-1].surface_y - 150)
 
     bursts = []
     puffs = []
@@ -1095,13 +1121,17 @@ def main():
         caption = FRAGMENT_MEMORY_LINES[index] if index < len(FRAGMENT_MEMORY_LINES) else ""
         caption_text = caption
         caption_timer = 3.0
-        if index + 1 < len(islands):
-            next_island = islands[index + 1]
+        # fragments[i] lives on islands[i + 1] (island 0 has no pickup), so
+        # the next island to call up out of the clouds is islands[i + 2].
+        is_last = (index == len(fragments) - 1)
+        if not is_last:
+            next_island = islands[index + 2]
             next_island.start_reveal()
             play_sound(island_sfx, 0.8)
-            if index + 1 < len(fragments):
-                fragments[index + 1].available = True
-        flashback = Flashback(flashback_wilt_img, flashback_flower_img, caption)
+            fragments[index + 1].available = True
+        else:
+            # Only the final platform's memory triggers the flashback.
+            flashback = Flashback(flashback_wilt_img, flashback_flower_img, caption)
 
     running = True
     max_frames = os.environ.get("SCENE3_MAX_FRAMES")
@@ -1124,8 +1154,10 @@ def main():
                 elif state == STATE_PLAY:
                     if event.key in (pygame.K_SPACE, pygame.K_UP):
                         player.try_jump()
-                    elif event.key == pygame.K_f and (event.mod & pygame.KMOD_SHIFT):
-                        player.try_dash()
+                    elif event.key == pygame.K_d and (event.mod & pygame.KMOD_SHIFT):
+                        player.try_dash(1)
+                    elif event.key == pygame.K_a and (event.mod & pygame.KMOD_SHIFT):
+                        player.try_dash(-1)
                 elif state == STATE_FLASHBACK:
                     if flashback is not None:
                         flashback.skip()
@@ -1243,7 +1275,7 @@ def main():
             draw_text(screen, "Memories:", 20, 30, CREAM, 20)
             draw_fragment_counter(screen, 130, 30, player.fragments_collected, len(fragments))
             draw_dash_meter(screen, 20, 54, player.dash_cooldown, DASH_COOLDOWN)
-            draw_text(screen, "Move: A/D or Arrows   Jump: Space/Up   Light Dash: Shift+F",
+            draw_text(screen, "Move: A/D or Arrows   Jump: Space/Up   Light Dash: Shift+D (right) / Shift+A (left)",
                       SCREEN_WIDTH // 2, SCREEN_HEIGHT - 24, (230, 230, 255), 16, center=True)
             if caption_timer > 0 and state == STATE_PLAY:
                 alpha = min(255, int(255 * min(1.0, caption_timer)))
